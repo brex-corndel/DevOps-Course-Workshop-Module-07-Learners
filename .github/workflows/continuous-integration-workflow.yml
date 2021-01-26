@@ -1,9 +1,88 @@
-name: Continuous Integration
-on: [push]                      # Will make the workflow run every time you push to any branch
+# Module 7 - Workflow actions 
 
+name: ContinuousIntegration
+
+# Controls when the action will run. 
+on:
+  # Triggers the workflow on push or pull request events but only for the main branch
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
+  # This workflow contains a single job called "build"
   build:
-    name: Build and test
-    runs-on: ubuntu-latest      # Sets the build environment a machine with the latest Ubuntu installed
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    - uses: actions/checkout@v2 # Adds a step to checkout the repository code
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+      
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v1.7.2
+
+
+      - name: Run a build
+        run: dotnet build
+        
+      - name: Run test
+        run: dotnet test
+      
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v2.1.4
+        
+      - name: Install npm
+        working-directory: ./DotnetTemplate.Web
+        run: npm install
+        
+      - name: Run npm build
+        working-directory: ./DotnetTemplate.Web
+        run: npm run build
+
+      - name: Run npm test
+        working-directory: ./DotnetTemplate.Web
+        run: npm run test
+        
+        
+      - name: Slack Notify
+        uses: rtCamp/action-slack-notify@v2.1.2
+        if: success()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_MESSAGE: Build and Test Passed
+          SLACK_COLOR: '#42BD32'
+          
+
+      - name: Slack Failure Notification
+        uses: rtCamp/action-slack-notify@v2.1.2
+        if: failure()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_MESSAGE: Build and Test Failed
+          SLACK_COLOR: '#BD3232'
+          
+          
+      - name: Dynamic Badges
+        uses: Schneegans/dynamic-badges-action@v1.0.0
+        id: badge
+        with:
+          label: 'Coverage'
+          status: ${{ steps.coverage.outputs.coverage }}
+          path: .refs/heads/main
+          color: ${{
+              steps.coverage.outputs.coverage > 90 && 'green'              ||
+              steps.coverage.outputs.coverage > 80 && 'yellow,green'       ||
+              steps.coverage.outputs.coverage > 70 && 'yellow'             ||
+              steps.coverage.outputs.coverage > 60 && 'orange,yellow'      ||
+              steps.coverage.outputs.coverage > 50 && 'orange'             ||
+              steps.coverage.outputs.coverage > 40 && 'red,orange'         ||
+              steps.coverage.outputs.coverage > 30 && 'red,red,orange'     ||
+              steps.coverage.outputs.coverage > 20 && 'red,red,red,orange' ||
+              'red' }}
